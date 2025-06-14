@@ -1,4 +1,5 @@
-﻿using System;
+﻿using EduSyncWebAPI.Models;
+using System;
 using System.Collections.Generic;
 
 namespace EduSyncWebAPI.Models;
@@ -10,6 +11,7 @@ public partial class Assessment
     public Guid? CourseId { get; set; }
 
     public string? Title { get; set; }
+
 
     public string? Questions { get; set; }
 

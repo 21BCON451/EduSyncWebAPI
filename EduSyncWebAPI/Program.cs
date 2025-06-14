@@ -50,6 +50,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
+builder.Services.AddSingleton<EventHubService>();
+
+
 // Role-based authorization policies
 builder.Services.AddAuthorization(options =>
 {
@@ -60,7 +63,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("RequireAdminOrStudentRole", policy => policy.RequireRole("Admin", "Student"));
 });
 
-// CORS setup for frontend (React)
+// CORS setup for frontend 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", builder =>
@@ -78,7 +81,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddScoped<TokenService>();
 
 
-// Swagger setup with JWT token support 🔒
+// Swagger setup with JWT token support 
 builder.Services.AddSwaggerGen(c =>
 {
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -131,10 +134,9 @@ app.UseExceptionHandler(errorApp =>
     });
 });
 
-// Middleware
 app.UseCors("AllowFrontend");
-app.UseSwagger(); // Always enable Swagger
-app.UseSwaggerUI(); // With the 🔒 Authorize button
+app.UseSwagger(); 
+app.UseSwaggerUI(); 
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();

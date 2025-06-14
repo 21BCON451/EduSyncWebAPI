@@ -10,7 +10,7 @@ namespace EduSyncWebAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize] // Require authentication globally
+    [Authorize] 
     public class CoursesController : ControllerBase
     {
         private readonly AppDbContext _context;
@@ -22,10 +22,28 @@ namespace EduSyncWebAPI.Controllers
 
         // GET: api/Courses
         [AllowAnonymous]
+       
         [HttpGet]
         public async Task<ActionResult<IEnumerable<CourseReadDTO>>> GetCourses()
         {
-            var courses = await _context.Courses.ToListAsync();
+            var currentUserId = GetCurrentUserId();
+            var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            List<Course> courses;
+
+            if (userRole == "Instructor")
+            {
+                
+                var instructorGuid = Guid.Parse(currentUserId);
+                courses = await _context.Courses
+                            .Where(c => c.InstructorId == instructorGuid)
+                            .ToListAsync();
+            }
+            else
+            {
+               
+                courses = await _context.Courses.ToListAsync();
+            }
 
             var courseDtos = courses.Select(c => new CourseReadDTO
             {
@@ -39,8 +57,10 @@ namespace EduSyncWebAPI.Controllers
             return Ok(courseDtos);
         }
 
+
         // GET: api/Courses/{id}
         [AllowAnonymous]
+        
         [HttpGet("{id}")]
         public async Task<ActionResult<CourseDetailDTO>> GetCourse(Guid id)
         {
@@ -51,6 +71,14 @@ namespace EduSyncWebAPI.Controllers
 
             if (course == null)
                 return NotFound();
+
+            var currentUserId = GetCurrentUserId();
+            var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (userRole == "Instructor" && course.InstructorId?.ToString() != currentUserId)
+            {
+                return Forbid("You can only view your own courses.");
+            }
 
             var courseDetailDto = new CourseDetailDTO
             {
@@ -76,7 +104,6 @@ namespace EduSyncWebAPI.Controllers
             return Ok(courseDetailDto);
         }
 
-        // PUT: api/Courses/{id}
         [Authorize(Roles = "Instructor")]
         [HttpPut("{id}")]
         public async Task<IActionResult> PutCourse(Guid id, CourseCreateDTO courseDto)
@@ -86,12 +113,14 @@ namespace EduSyncWebAPI.Controllers
                 return NotFound();
 
             var currentUserId = GetCurrentUserId();
-            if (course.InstructorId.ToString() != currentUserId)
+
+            if (course.InstructorId == null || course.InstructorId.ToString() != currentUserId)
                 return Forbid("You can only update your own courses.");
 
             course.Title = courseDto.Title;
             course.Description = courseDto.Description;
-            course.InstructorId = courseDto.InstructorId;
+         
+
             course.MediaUrl = courseDto.MediaUrl;
 
             _context.Entry(course).State = EntityState.Modified;
@@ -111,6 +140,7 @@ namespace EduSyncWebAPI.Controllers
             return NoContent();
         }
 
+
         // POST: api/Courses
         [Authorize(Roles = "Instructor")]
         [HttpPost]
@@ -118,7 +148,7 @@ namespace EduSyncWebAPI.Controllers
         {
             var currentUserId = GetCurrentUserId();
 
-            // You might want to enforce that InstructorId matches current user
+           
             if (courseDto.InstructorId.ToString() != currentUserId)
                 return Forbid("You can only create courses assigned to yourself.");
 
@@ -170,10 +200,9 @@ namespace EduSyncWebAPI.Controllers
             return _context.Courses.Any(e => e.CourseId == id);
         }
 
-        // Helper method to get current user ID from JWT token claims
         private string GetCurrentUserId()
         {
-            // Assumes "sub" claim contains the user ID (adjust if your claim is different)
+            
             return User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
         }
     }

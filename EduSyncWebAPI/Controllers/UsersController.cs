@@ -1,17 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using EduSyncWebAPI.Data;
+using EduSyncWebAPI.DTOs;
+using EduSyncWebAPI.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using EduSyncWebAPI.Data;
-using EduSyncWebAPI.Models;
-using EduSyncWebAPI.DTOs;
-using Microsoft.AspNetCore.Authorization;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Security.Claims;
+using System.Threading.Tasks;
 
 namespace EduSyncWebAPI.Controllers
 {
-    [Authorize]  // All endpoints require authentication by default
+    [Authorize] 
     [Route("api/[controller]")]
     [ApiController]
     public class UsersController : ControllerBase
@@ -72,41 +73,65 @@ namespace EduSyncWebAPI.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> PutUser(Guid id, UserDto userDto)
         {
-            // Allow only the user themselves OR instructor to update user details
-            var userIdFromToken = User.FindFirst("sub")?.Value; // assuming JWT sub = UserId
-            var userRole = User.FindFirst("role")?.Value;
-
-            if (id.ToString() != userIdFromToken && userRole != "instructor")
-            {
-                return Forbid("You can only update your own profile or be an instructor.");
-            }
-
-            if (id != userDto.UserId)
-                return BadRequest("User ID mismatch");
-
-            var user = await _context.Users.FindAsync(id);
-            if (user == null)
-                return NotFound();
-
-            user.Name = userDto.FullName;
-            user.Email = userDto.Email;
-
-            _context.Entry(user).State = EntityState.Modified;
-
             try
             {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!UserExists(id))
-                    return NotFound();
-                else
-                    throw;
-            }
+              
+                var userIdFromToken = User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
+                var userRole = User.FindFirst("http://schemas.microsoft.com/ws/2008/06/identity/claims/role")?.Value?.ToLower();
 
-            return NoContent();
+                Console.WriteLine($" Token UserId: {userIdFromToken}");
+                Console.WriteLine($" DTO UserId: {userDto.UserId}");
+                Console.WriteLine($" Route ID: {id}");
+                Console.WriteLine($" Role: {userRole}");
+
+                
+                if (string.IsNullOrEmpty(userIdFromToken))
+                {
+                    Console.WriteLine("❌ Missing UserId claim from token.");
+                    return Unauthorized("Missing UserId in token.");
+                }
+
+                // Only allow user to update their own profile unless instructor
+                if (id.ToString() != userIdFromToken && userRole != "instructor")
+                {
+                    Console.WriteLine("❌ Forbidden: Not allowed to edit another user's profile.");
+                    return Forbid("You can only update your own profile or be an instructor.");
+                }
+
+                // Validate that route ID matches payload ID
+                if (id != userDto.UserId)
+                {
+                    Console.WriteLine("❌ ID mismatch.");
+                    return BadRequest("User ID mismatch between route and payload.");
+                }
+
+                // Find the user
+                var user = await _context.Users.FindAsync(id);
+                if (user == null)
+                {
+                    Console.WriteLine("❌ User not found in database.");
+                    return NotFound("User not found.");
+                }
+
+                // Update fields
+                user.Name = userDto.FullName ?? user.Name;
+                user.Email = userDto.Email ?? user.Email;
+
+                _context.Entry(user).State = EntityState.Modified;
+
+                await _context.SaveChangesAsync();
+
+                Console.WriteLine(" User profile updated.");
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($" Server exception: {ex.Message}");
+                return StatusCode(500, $"Server error: {ex.Message}");
+            }
         }
+
+
 
         // POST: api/Users
         [AllowAnonymous]
@@ -118,7 +143,7 @@ namespace EduSyncWebAPI.Controllers
                 UserId = Guid.NewGuid(),
                 Name = userDto.FullName,
                 Email = userDto.Email,
-                Role = "student" // Default role assigned
+                Role = "student"
             };
 
             _context.Users.Add(user);
@@ -135,7 +160,7 @@ namespace EduSyncWebAPI.Controllers
         }
 
         // DELETE: api/Users/{id}
-        [Authorize(Roles = "instructor")]  // Only instructor can delete
+        [Authorize(Roles = "instructor")]  
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUser(Guid id)
         {

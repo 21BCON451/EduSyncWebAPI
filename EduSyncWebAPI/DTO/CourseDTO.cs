@@ -1,6 +1,4 @@
-﻿using EduSyncWebAPI.DTOs;
-
-namespace EduSyncWebAPI.DTOs
+﻿namespace EduSyncWebAPI.DTOs
 {
     public class CourseCreateDTO
     {

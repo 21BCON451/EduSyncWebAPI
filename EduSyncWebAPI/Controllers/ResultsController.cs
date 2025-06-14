@@ -13,14 +13,16 @@ namespace EduSyncWebAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize] // By default, require auth
+    [Authorize] 
     public class ResultsController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly EventHubService _eventHubService;
 
-        public ResultsController(AppDbContext context)
+        public ResultsController(AppDbContext context, EventHubService eventHubService)
         {
             _context = context;
+            _eventHubService = eventHubService;
         }
 
         // GET: api/Results
@@ -65,13 +67,13 @@ namespace EduSyncWebAPI.Controllers
         }
 
         // POST: api/Results
+        [AllowAnonymous]
         [HttpPost]
         public async Task<ActionResult<ResultReadDTO>> PostResult(ResultCreateDTO dto)
         {
             var userIdFromToken = User.FindFirst("sub")?.Value;
             var userRole = User.FindFirst("role")?.Value;
 
-            // Students can only create their own results
             if (userRole == "student" && dto.UserId.ToString() != userIdFromToken)
             {
                 return Forbid("Students can only add results for themselves.");
@@ -88,6 +90,16 @@ namespace EduSyncWebAPI.Controllers
 
             _context.Results.Add(result);
             await _context.SaveChangesAsync();
+
+           
+            await _eventHubService.SendAsync(new
+            {
+                ResultId = result.ResultId,
+                AssessmentId = result.AssessmentId,
+                UserId = result.UserId,
+                Score = result.Score,
+                AttemptDate = result.AttemptDate
+            });
 
             var resultDto = new ResultReadDTO
             {
@@ -112,7 +124,6 @@ namespace EduSyncWebAPI.Controllers
             var userIdFromToken = User.FindFirst("sub")?.Value;
             var userRole = User.FindFirst("role")?.Value;
 
-            // Students can only update their own results
             if (userRole == "student" && existingResult.UserId.ToString() != userIdFromToken)
             {
                 return Forbid("Students can only update their own results.");
@@ -149,7 +160,6 @@ namespace EduSyncWebAPI.Controllers
             var userIdFromToken = User.FindFirst("sub")?.Value;
             var userRole = User.FindFirst("role")?.Value;
 
-            // Students can only delete their own results
             if (userRole == "student" && result.UserId.ToString() != userIdFromToken)
             {
                 return Forbid("Students can only delete their own results.");
@@ -166,6 +176,4 @@ namespace EduSyncWebAPI.Controllers
             return _context.Results.Any(e => e.ResultId == id);
         }
     }
-
 }
-
