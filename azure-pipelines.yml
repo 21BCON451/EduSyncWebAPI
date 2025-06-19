@@ -2,36 +2,45 @@
 # Build and test ASP.NET Core projects targeting the full .NET Framework.
 # Add steps that publish symbols, save build artifacts, and more:
 # https://docs.microsoft.com/azure/devops/pipelines/languages/dotnet-core
-
 trigger:
-- main  # or your branch name
+  branches:
+    include:
+      - master
 
 pool:
   vmImage: 'windows-latest'
 
 variables:
   buildConfiguration: 'Release'
+  outputDir: '$(Build.ArtifactStagingDirectory)'
 
 steps:
 - task: UseDotNet@2
   inputs:
     packageType: 'sdk'
-    version: '8.0.x'  # or your .NET version
+    version: '8.x'
 
-- script: dotnet build --configuration $(buildConfiguration)
-  displayName: 'Build the project'
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'restore'
+    projects: '**/*.csproj'
 
-- script: dotnet test --configuration $(buildConfiguration)
-  displayName: 'Run tests'
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'build'
+    projects: '**/*.csproj'
+    arguments: '--configuration $(buildConfiguration)'
 
 - task: DotNetCoreCLI@2
   inputs:
     command: 'publish'
     publishWebProjects: true
-    arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
-    zipAfterPublish: true
+    arguments: '--configuration $(buildConfiguration) --output $(outputDir)'
 
-- task: PublishBuildArtifacts@1
+- task: AzureWebApp@1
   inputs:
-    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-    ArtifactName: 'drop'
+    azureSubscription: 'Azure-for-Students'   # 🔁 Replace this
+    appType: 'webApp'
+    appName: 'my-dotnet-backend'                # 🔁 This must match your App Service
+    package: '$(outputDir)'
+
