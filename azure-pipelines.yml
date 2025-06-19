@@ -5,14 +5,13 @@
 trigger:
   branches:
     include:
-      - master
+      - main
 
 pool:
   vmImage: 'windows-latest'
 
 variables:
   buildConfiguration: 'Release'
-  outputDir: '$(Build.ArtifactStagingDirectory)'
 
 steps:
 - task: UseDotNet@2
@@ -28,19 +27,15 @@ steps:
 - task: DotNetCoreCLI@2
   inputs:
     command: 'build'
-    projects: '**/*.csproj'
     arguments: '--configuration $(buildConfiguration)'
 
 - task: DotNetCoreCLI@2
   inputs:
     command: 'publish'
-    publishWebProjects: true
-    arguments: '--configuration $(buildConfiguration) --output $(outputDir)'
+    projects: '**/EduSyncWebAPI.csproj'
+    arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
 
-- task: AzureWebApp@1
+- task: PublishBuildArtifacts@1
   inputs:
-    azureSubscription: 'Azure-for-Students'   # 🔁 Replace this
-    appType: 'webApp'
-    appName: 'my-dotnet-backend'                # 🔁 This must match your App Service
-    package: '$(outputDir)'
-
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    ArtifactName: 'drop'
