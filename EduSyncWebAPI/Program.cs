@@ -9,18 +9,15 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Database connection
+// Database Connection
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"),
         sqlOptions =>
         {
-            sqlOptions.EnableRetryOnFailure(
-                maxRetryCount: 5,
-                maxRetryDelay: TimeSpan.FromSeconds(30),
-                errorNumbersToAdd: null);
+            sqlOptions.EnableRetryOnFailure(5, TimeSpan.FromSeconds(30), null);
         }));
 
-// JWT setup
+// JWT Setup
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -41,7 +38,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         {
             OnAuthenticationFailed = context =>
             {
-                if (context.Exception.GetType() == typeof(SecurityTokenExpiredException))
+                if (context.Exception is SecurityTokenExpiredException)
                 {
                     context.Response.Headers.Add("Token-Expired", "true");
                 }
@@ -52,37 +49,22 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddSingleton<EventHubService>();
 
-
-// Role-based authorization policies
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("RequireAdminRole", policy => policy.RequireRole("Admin"));
-    options.AddPolicy("RequireInstructorRole", policy => policy.RequireRole("Instructor"));
-    options.AddPolicy("RequireStudentRole", policy => policy.RequireRole("Student"));
-    options.AddPolicy("RequireAdminOrInstructorRole", policy => policy.RequireRole("Admin", "Instructor"));
-    options.AddPolicy("RequireAdminOrStudentRole", policy => policy.RequireRole("Admin", "Student"));
-});
-
-// CORS setup for frontend 
+// CORS Setup - Use Specific Origin for your Static Web App
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy
-            .AllowAnyOrigin()    // Allows all origins
-            .AllowAnyMethod()
-            .AllowAnyHeader();
-        // Note: .AllowCredentials() cannot be used with .AllowAnyOrigin()
+        policy.WithOrigins("https://calm-rock-0d692eb1e.6.azurestaticapps.net") // Replace with your exact frontend URL
+              .AllowAnyMethod()
+              .AllowAnyHeader();
     });
 });
 
-// Add controllers
+// Controllers, Swagger, Token Service
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddScoped<TokenService>();
 
-
-// Swagger setup with JWT token support 
 builder.Services.AddSwaggerGen(c =>
 {
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -100,20 +82,17 @@ builder.Services.AddSwaggerGen(c =>
         {
             new OpenApiSecurityScheme
             {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
             },
             Array.Empty<string>()
         }
     });
 });
 
+// Build App
 var app = builder.Build();
 
-// Global error handler
+// Global Error Handler
 app.UseExceptionHandler(errorApp =>
 {
     errorApp.Run(async context =>
@@ -135,11 +114,13 @@ app.UseExceptionHandler(errorApp =>
     });
 });
 
+// ✅ Correct Middleware Order
 app.UseCors("AllowFrontend");
-app.UseSwagger(); 
-app.UseSwaggerUI(); 
+app.UseSwagger();
+app.UseSwaggerUI();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapControllers();
 app.Run();
