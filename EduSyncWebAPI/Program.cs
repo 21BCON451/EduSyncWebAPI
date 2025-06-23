@@ -66,12 +66,13 @@ builder.Services.AddAuthorization(options =>
 // CORS setup for frontend 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowFrontend", builder =>
+    options.AddPolicy("AllowFrontend", policy =>
     {
-        builder.WithOrigins("http://localhost:3000")
-               .AllowAnyMethod()
-               .AllowAnyHeader()
-               .AllowCredentials();
+        policy
+            .AllowAnyOrigin()    // Allows all origins
+            .AllowAnyMethod()
+            .AllowAnyHeader();
+        // Note: .AllowCredentials() cannot be used with .AllowAnyOrigin()
     });
 });
 
