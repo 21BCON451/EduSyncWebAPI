@@ -52,17 +52,13 @@ builder.Services.AddSingleton<EventHubService>();
 // CORS Setup - Use Specific Origin for your Static Web App
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowFrontend", policy =>
+    options.AddPolicy("AllowAll", policy =>
     {
-        policy.WithOrigins(
-            "https://calm-rock-0d692eb1e.6.azurestaticapps.net",
-            "http://localhost:3000" // ✅ Local frontend allowed
-        )
-        .AllowAnyMethod()
-        .AllowAnyHeader();
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
     });
 });
-
 // Controllers, Swagger, Token Service
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -118,7 +114,7 @@ app.UseExceptionHandler(errorApp =>
 });
 
 // ✅ Correct Middleware Order
-app.UseCors("AllowFrontend");
+app.UseCors("AllowAll");
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseHttpsRedirection();
