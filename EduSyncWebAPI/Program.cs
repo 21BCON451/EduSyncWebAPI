@@ -54,9 +54,12 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("https://calm-rock-0d692eb1e.6.azurestaticapps.net") // Replace with your exact frontend URL
-              .AllowAnyMethod()
-              .AllowAnyHeader();
+        policy.WithOrigins(
+            "https://calm-rock-0d692eb1e.6.azurestaticapps.net",
+            "http://localhost:3000" // ✅ Local frontend allowed
+        )
+        .AllowAnyMethod()
+        .AllowAnyHeader();
     });
 });
 
